@@ -10,7 +10,7 @@ DATASET=$ROOT_DIR/datasets/VisualWebBench
 export MODEL_NAME=7b
 
 # Default task type
-TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_ground
+TASK_TYPE=element_ocr,heading_ocr,action_ground,action_prediction,element_ground
 SEED=""
 
 # Parse command line arguments
@@ -18,7 +18,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --task)
             if [[ "$2" == "all" ]]; then
-                TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_ground
+                TASK_TYPE=element_ocr,heading_ocr,action_ground,action_prediction,element_ground
             else
                 TASK_TYPE="$2"
             fi

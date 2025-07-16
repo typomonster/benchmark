@@ -9,6 +9,7 @@ The evaluation pipeline supports multiple model adapters and can evaluate on
 single or multiple tasks simultaneously, computing task-specific metrics and
 saving results to JSON files.
 """
+
 import os
 import json
 import yaml
@@ -155,8 +156,8 @@ def main(args):
     device = f"cuda:{args.gpus}"
     model_name = model_path.split("/")[-1].lower()
 
-    if model_config["model_adapter"] == "Qwen25VLAdapter":
-        # Qwen 2.5 VL models
+    if model_config["model_adapter"] == "WorkflowUIAdapter":
+        # Workflow UI models
         from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
         processor = AutoProcessor.from_pretrained(
@@ -231,7 +232,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model_name",
-        default="qwen_vl",
+        default="7b",
         type=str,
         choices=[
             file.split(".")[0]

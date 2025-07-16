@@ -1,10 +1,11 @@
 """
-Adapter implementation for Qwen 2.5 VL vision-language models.
+Adapter implementation for Workflow UI vision-language models.
 
-This module provides the Qwen25VLAdapter class which handles model inference
-for Qwen 2.5 VL models. It manages image encoding, prompt formatting, and
+This module provides the WorkflowUIAdapter class which handles model inference
+for Workflow UI models. It manages image encoding, prompt formatting, and
 task-specific response post-processing for various visual web understanding tasks.
 """
+
 import re
 import io
 import base64
@@ -18,16 +19,16 @@ from model_adapters import BaseAdapter
 from utils.constants import *
 
 
-class Qwen25VLAdapter(BaseAdapter):
+class WorkflowUIAdapter(BaseAdapter):
     """
-    Adapter for Qwen 2.5 VL vision-language models.
+    Adapter for Workflow UI vision-language models.
 
-    This class provides an interface to Qwen 2.5 VL models. It handles image
+    This class provides an interface to Workflow UI models. It handles image
     processing, conversation formatting, and model inference specific to
-    Qwen 2.5 VL's architecture.
+    Workflow UI's architecture.
 
     Attributes:
-        model: The Qwen 2.5 VL model instance for inference.
+        model: The Workflow UI model instance for inference.
         processor: The processor for text and image processing.
     """
 
@@ -37,10 +38,10 @@ class Qwen25VLAdapter(BaseAdapter):
         processor: AutoProcessor,
     ):
         """
-        Initialize the Qwen 2.5 VL adapter.
+        Initialize the Workflow UI adapter.
 
         Args:
-            model: The Qwen 2.5 VL model instance.
+            model: The Workflow UI model instance.
             processor: The processor for text and image processing.
         """
         super().__init__(model, None)
@@ -53,9 +54,9 @@ class Qwen25VLAdapter(BaseAdapter):
         task_type: str,
     ) -> str:
         """
-        Generate a response using Qwen 2.5 VL's vision-language model.
+        Generate a response using Workflow UI's vision-language model.
 
-        This method formats the input for Qwen 2.5 VL, processes the image,
+        This method formats the input for Workflow UI, processes the image,
         and generates a response using the model's inference pipeline.
 
         Args:
@@ -74,7 +75,7 @@ class Qwen25VLAdapter(BaseAdapter):
         image.save(image_buffer, format="PNG")
         image_base64 = base64.b64encode(image_buffer.getvalue()).decode("utf-8")
 
-        # Format input according to Qwen 2.5 VL's message structure
+        # Format input according to Workflow UI's message structure
         messages = [
             {
                 "role": "user",
