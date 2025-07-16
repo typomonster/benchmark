@@ -159,10 +159,10 @@ def evaluate(
         data_size = min(data_size, max_examples)
         print(f"Limiting evaluation to first {data_size} examples")
 
-    if repeat > 1:
-        print(
-            f"Dataset will be repeated {repeat} times (original size: {original_size}, effective size: {effective_size})"
-        )
+    # if repeat > 1:
+    #     print(
+    #         f"Dataset will be repeated {repeat} times (original size: {original_size}, effective size: {effective_size})"
+    #     )
 
     # Check if adapter supports batch processing
     supports_batch = hasattr(model_adapter, "generate_batch") and batch_size > 1
