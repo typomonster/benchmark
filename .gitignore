@@ -180,3 +180,4 @@ test.py
 *.swp
 
 dataset
+run.sh

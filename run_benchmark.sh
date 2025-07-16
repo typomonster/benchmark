@@ -10,15 +10,16 @@ DATASET=$ROOT_DIR/datasets/VisualWebBench
 export MODEL_NAME=7b
 
 # Default task type
-TASK_TYPE=element_ocr,heading_ocr,action_ground,action_prediction,element_ground
+TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_ground
 SEED=""
+MAX_EXAMPLES=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --task)
             if [[ "$2" == "all" ]]; then
-                TASK_TYPE=element_ocr,heading_ocr,action_ground,action_prediction,element_ground
+                TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_ground
             else
                 TASK_TYPE="$2"
             fi
@@ -28,9 +29,13 @@ while [[ $# -gt 0 ]]; do
             SEED="$2"
             shift 2
             ;;
+        --max-examples)
+            MAX_EXAMPLES="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>]"
+            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>]"
             exit 1
             ;;
     esac
@@ -44,6 +49,11 @@ PYTHON_CMD="python $DEBUG_MODE benchmark.py --model_name $MODEL_NAME --dataset_n
 # Add seed if provided
 if [[ -n "$SEED" ]]; then
     PYTHON_CMD="$PYTHON_CMD --seed $SEED"
+fi
+
+# Add max_examples if provided
+if [[ -n "$MAX_EXAMPLES" ]]; then
+    PYTHON_CMD="$PYTHON_CMD --max_examples $MAX_EXAMPLES"
 fi
 
 # Execute the command

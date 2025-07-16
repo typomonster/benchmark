@@ -75,6 +75,7 @@ def evaluate(
     prompt: str,
     dataset: datasets.Dataset,
     task_type: str,
+    max_examples: int = 0,
     **kwargs,
 ):
     """
@@ -89,6 +90,7 @@ def evaluate(
         prompt: The prompt template to use for the task.
         dataset: The dataset containing test samples.
         task_type: The type of task being evaluated (affects prompt formatting).
+        max_examples: Maximum number of examples to evaluate per task (0 means no limit).
         **kwargs: Additional keyword arguments passed to the evaluation function.
 
     Returns:
@@ -100,7 +102,12 @@ def evaluate(
     preds, golds = [], []
     print("=" * 80)
     print("Prompt: ", prompt)
+
+    # Limit dataset size if max_examples is specified
     data_size = len(dataset)
+    if max_examples > 0:
+        data_size = min(data_size, max_examples)
+        print(f"Limiting evaluation to first {data_size} examples")
 
     # Iterate through dataset and generate predictions
     acc_tokens = {
@@ -213,6 +220,9 @@ def main(args):
     else:
         task_types = [args.task_type]
 
+    # Store all results for summary
+    all_results = {}
+
     # Evaluate on each task type
     for task_type in task_types:
         print(model_config.keys())
@@ -230,7 +240,7 @@ def main(args):
             recursive=True,
         )
         if arrow_files:
-            dataset = datasets.load_dataset("arrow", data_files=arrow_files)["test"]
+            dataset = datasets.load_dataset("arrow", data_files=arrow_files)["train"]
         else:
             dataset = datasets.load_from_disk(
                 os.path.join(args.dataset_name_or_path, task_type)
@@ -242,7 +252,11 @@ def main(args):
             prompt=prompt,
             dataset=dataset,
             task_type=task_type,
+            max_examples=args.max_examples,
         )
+
+        # Store results for summary
+        all_results[task_type] = scores
 
         # Format and print results
         score_str = ", ".join([f"{k}: {v:.2f}" for k, v in scores.items()])
@@ -259,6 +273,50 @@ def main(args):
         output_res = [{"score": score_str}] + output_res
         with open(os.path.join(args.output_path, f"{task_type}.json"), "w") as f:
             json.dump(output_res, f, indent=2)
+
+    # Display benchmark summary
+    print("\n" + "=" * 80)
+    print("BENCHMARK SUMMARY")
+    print("=" * 80)
+
+    # Calculate multimodal score
+    multimodal_tasks = [ELEMENT_OCR_TASK, HEADING_OCR_TASK, WEBQA_TASK]
+    multimodal_scores = []
+
+    for task in multimodal_tasks:
+        if task in all_results and "rouge_1" in all_results[task]:
+            multimodal_scores.append(all_results[task]["rouge_1"])
+            print(f"{task}['rouge_1']: {all_results[task]['rouge_1']:.2f}")
+
+    if multimodal_scores:
+        multimodal_score = np.mean(multimodal_scores)
+        print(f"\nMultimodal Score: {multimodal_score:.2f}")
+    else:
+        print("\nMultimodal Score: N/A (no multimodal tasks evaluated)")
+
+    # Calculate grounding score
+    grounding_tasks = [ACTION_GROUND_TASK, ACTION_PREDICTION_TASK, ELEMENT_GROUND_TASK]
+    grounding_scores = []
+
+    print("\nGrounding Task Results:")
+    for task in grounding_tasks:
+        if task in all_results and "accuracy" in all_results[task]:
+            grounding_scores.append(all_results[task]["accuracy"])
+            print(f"{task}['accuracy']: {all_results[task]['accuracy']:.2f}")
+
+    if grounding_scores:
+        grounding_score = np.mean(grounding_scores)
+        print(f"\nGrounding Score: {grounding_score:.2f}")
+    else:
+        print("\nGrounding Score: N/A (no grounding tasks evaluated)")
+
+    print("\n" + "=" * 80)
+    print(f"Model: {args.model_name}")
+    if multimodal_scores:
+        print(f"Final Multimodal Score: {multimodal_score:.2f}")
+    if grounding_scores:
+        print(f"Final Grounding Score: {grounding_score:.2f}")
+    print("=" * 80)
 
 
 if __name__ == "__main__":
@@ -297,6 +355,12 @@ if __name__ == "__main__":
         default=42,
         type=int,
         help="Random seed for reproducible results",
+    )
+    parser.add_argument(
+        "--max_examples",
+        default=0,
+        type=int,
+        help="Maximum number of examples to evaluate per task (0 means no limit).",
     )
     args = parser.parse_args()
 

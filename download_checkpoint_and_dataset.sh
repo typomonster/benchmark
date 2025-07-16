@@ -9,15 +9,15 @@ echo "Using ROOT_DIR: $ROOT_DIR"
 mkdir -p "$ROOT_DIR/models"
 mkdir -p "$ROOT_DIR/datasets"
 
-# Download Qwen2.5-VL-7B-Instruct model
-echo "Downloading Qwen/Qwen2.5-VL-7B-Instruct model..."
+# Download Workflow-UI-7B-Instruct model
+echo "Downloading leo5072/Workflow-UI-7B-Instruct model..."
 python -c "
 import os
 from huggingface_hub import snapshot_download
 
-model_path = os.path.join('$ROOT_DIR', 'models', 'Qwen2.5-VL-7B-Instruct')
+model_path = os.path.join('$ROOT_DIR', 'models', 'Workflow-UI-7B-Instruct')
 snapshot_download(
-    repo_id='Qwen/Qwen2.5-VL-7B-Instruct',
+    repo_id='leo5072/Workflow-UI-7B-Instruct',
     local_dir=model_path,
     local_dir_use_symlinks=False
 )
@@ -47,6 +47,6 @@ print(f'All dataset configs downloaded to: {dataset_path}')
 "
 
 echo "Download completed!"
-echo "Model location: $ROOT_DIR/models/Qwen2.5-VL-7B-Instruct"
+echo "Model location: $ROOT_DIR/models/Workflow-UI-7B-Instruct"
 echo "Dataset location: $ROOT_DIR/datasets/VisualWebBench"
 
