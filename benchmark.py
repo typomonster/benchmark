@@ -48,10 +48,22 @@ eval_metric = {
 
 def set_random_seed(seed):
     """
-    Set random seed for reproducible results.
+    Set random seed for reproducible results across all libraries.
+
+    This function ensures deterministic behavior by setting seeds for:
+    - Python's built-in random module
+    - NumPy's random number generator
+    - PyTorch's CPU and CUDA random number generators
+    - Transformers library (if available)
+    - CUDA backend operations (disables non-deterministic algorithms)
 
     Args:
-        seed (int): Random seed value
+        seed (int): Random seed value to use for all random number generators.
+                   Common values are 42, 0, or any positive integer.
+
+    Note:
+        Setting deterministic behavior may impact performance on CUDA devices
+        due to disabled optimizations.
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -81,23 +93,48 @@ def evaluate(
     """
     Evaluate a model adapter on a specific task using the provided dataset.
 
-    This function iterates through the dataset, generates predictions using the
-    model adapter, and computes task-specific evaluation metrics. It handles
-    different prompt formats based on the task type.
+    This function orchestrates the evaluation pipeline by:
+    1. Iterating through dataset samples
+    2. Formatting prompts based on task-specific requirements
+    3. Generating predictions using the model adapter
+    4. Computing task-specific evaluation metrics
+    5. Tracking token usage statistics
+
+    The function supports various visual web understanding tasks including:
+    - Web page captioning (CAPTION_TASK)
+    - Heading OCR extraction (HEADING_OCR_TASK)
+    - Web-based question answering (WEBQA_TASK)
+    - Element text extraction (ELEMENT_OCR_TASK)
+    - UI element grounding (ELEMENT_GROUND_TASK)
+    - Action prediction (ACTION_PREDICTION_TASK)
+    - Action grounding (ACTION_GROUND_TASK)
 
     Args:
-        model_adapter: The model adapter instance to evaluate.
-        prompt: The prompt template to use for the task.
-        dataset: The dataset containing test samples.
-        task_type: The type of task being evaluated (affects prompt formatting).
-        max_examples: Maximum number of examples to evaluate per task (0 means no limit).
-        **kwargs: Additional keyword arguments passed to the evaluation function.
+        model_adapter (BaseAdapter): The model adapter instance implementing the
+                                    inference interface for the specific model.
+        prompt (str): The prompt template with placeholders for task-specific
+                     information (e.g., {question}, {bbox_ratio}, {element_desc}).
+        dataset (datasets.Dataset): HuggingFace dataset containing test samples
+                                   with 'image' and task-specific fields.
+        task_type (str): Task identifier from utils.constants that determines
+                        prompt formatting and evaluation metrics.
+        max_examples (int, optional): Maximum number of examples to evaluate.
+                                     0 means no limit. Defaults to 0.
+        **kwargs: Additional arguments passed to task-specific evaluation functions.
 
     Returns:
-        tuple: A tuple containing:
-            - scores (dict): Dictionary of evaluation metrics for the task
-            - preds (list): List of model predictions
-            - golds (list): List of ground truth answers
+        tuple[dict, list, list]: A tuple containing:
+            - scores (dict): Evaluation metrics including task-specific scores
+                           (e.g., ROUGE, F1, accuracy) and token usage stats:
+                           - acc_input: Average input tokens per example
+                           - acc_output: Average output tokens per example
+                           - acc_total: Average total tokens per example
+                           - data_size: Number of examples evaluated
+            - preds (list): Model predictions for each example
+            - golds (list): Ground truth answers for each example
+
+    Raises:
+        NotImplementedError: If the task_type is not supported.
     """
     preds, golds = [], []
     print("=" * 80)
@@ -169,15 +206,43 @@ def evaluate(
 
 def main(args):
     """
-    Main function to run the evaluation pipeline.
+    Main function to orchestrate the complete evaluation pipeline.
 
-    This function handles model initialization, dataset loading, and evaluation
-    orchestration. It supports different model types and automatically selects
-    the appropriate adapter and configuration.
+    This function coordinates the entire benchmark evaluation process:
+    1. Sets up reproducible environment with random seeds
+    2. Loads model configuration from YAML files
+    3. Initializes the appropriate model adapter based on engine choice
+    4. Loads datasets for specified tasks
+    5. Runs evaluation and collects metrics
+    6. Saves results to JSON files
+    7. Computes and displays aggregate benchmark scores
+
+    The function supports:
+    - Multiple inference engines (PyTorch, vLLM)
+    - Single or multiple task evaluation
+    - Configurable model paths and parameters
+    - Comprehensive result logging and scoring
 
     Args:
-        args: Command line arguments containing model name, task type, dataset path,
-              output path, and other configuration options.
+        args (argparse.Namespace): Command line arguments containing:
+            - model_name (str): Model configuration name (matches configs/*.yaml)
+            - task_type (str): Single task or comma-separated list of tasks
+            - dataset_name_or_path (str): Path to VisualWebBench dataset
+            - output_path (str): Directory for saving evaluation results
+            - gpus (str): GPU device specification (e.g., "0" or "0,2")
+            - seed (int): Random seed for reproducibility
+            - max_examples (int): Maximum examples per task (0 = unlimited)
+            - engine (str): Inference engine choice ("pytorch" or "vllm")
+
+    Side Effects:
+        - Creates output directories if they don't exist
+        - Saves evaluation results to JSON files in output_path
+        - Prints evaluation progress and final scores to stdout
+
+    Note:
+        The benchmark computes two aggregate scores:
+        - Multimodal Score: Average of ROUGE-1/F1 scores for text generation tasks
+        - Grounding Score: Average accuracy for visual grounding tasks
     """
     # Set random seed for reproducible results
     set_random_seed(args.seed)
