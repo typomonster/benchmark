@@ -16,6 +16,7 @@ import yaml
 import argparse
 import random
 import numpy as np
+import time
 from tqdm import tqdm
 
 import datasets
@@ -88,13 +89,14 @@ def evaluate(
     dataset: datasets.Dataset,
     task_type: str,
     max_examples: int = 0,
+    batch_size: int = 1,
     **kwargs,
 ):
     """
     Evaluate a model adapter on a specific task using the provided dataset.
 
     This function orchestrates the evaluation pipeline by:
-    1. Iterating through dataset samples
+    1. Iterating through dataset samples (in batches if supported)
     2. Formatting prompts based on task-specific requirements
     3. Generating predictions using the model adapter
     4. Computing task-specific evaluation metrics
@@ -120,6 +122,9 @@ def evaluate(
                         prompt formatting and evaluation metrics.
         max_examples (int, optional): Maximum number of examples to evaluate.
                                      0 means no limit. Defaults to 0.
+        batch_size (int, optional): Number of samples to process in each batch.
+                                   Only used if the adapter supports batch processing.
+                                   Defaults to 1 (single sample processing).
         **kwargs: Additional arguments passed to task-specific evaluation functions.
 
     Returns:
@@ -146,55 +151,120 @@ def evaluate(
         data_size = min(data_size, max_examples)
         print(f"Limiting evaluation to first {data_size} examples")
 
+    # Check if adapter supports batch processing
+    supports_batch = hasattr(model_adapter, "generate_batch") and batch_size > 1
+
     # Iterate through dataset and generate predictions
     acc_tokens = {
         "input": 0,
         "output": 0,
         "total": 0,
     }
-    for idx_ in tqdm(range(data_size), desc=task_type):
-        sample = dataset[idx_]
 
-        # Format prompt based on task type
-        if task_type in [CAPTION_TASK, HEADING_OCR_TASK]:
-            cur_prompt = prompt
-        elif task_type == WEBQA_TASK:
-            cur_prompt = prompt.format(question=sample["question"])
-        elif task_type == ELEMENT_OCR_TASK:
-            cur_prompt = prompt.format(bbox_ratio=sample["bbox"])
-        elif task_type == ELEMENT_GROUND_TASK:
-            cur_prompt = prompt.format(element_desc=sample["elem_desc"])
-        elif task_type == ACTION_PREDICTION_TASK:
-            choices_text = "\n".join(
-                [
-                    f"{chr(ord('A')+i)}. {option}"
-                    for i, option in enumerate(sample["options"])
-                ]
+    if supports_batch:
+        # Batch processing mode
+        for start_idx in tqdm(
+            range(0, data_size, batch_size), desc=f"{task_type} (batch)"
+        ):
+            end_idx = min(start_idx + batch_size, data_size)
+            batch_samples = [dataset[idx_] for idx_ in range(start_idx, end_idx)]
+
+            # Prepare batch data
+            batch_prompts = []
+            batch_images = []
+            batch_task_types = []
+            batch_golds = []
+
+            for sample in batch_samples:
+                # Format prompt based on task type
+                if task_type in [CAPTION_TASK, HEADING_OCR_TASK]:
+                    cur_prompt = prompt
+                elif task_type == WEBQA_TASK:
+                    cur_prompt = prompt.format(question=sample["question"])
+                elif task_type == ELEMENT_OCR_TASK:
+                    cur_prompt = prompt.format(bbox_ratio=sample["bbox"])
+                elif task_type == ELEMENT_GROUND_TASK:
+                    cur_prompt = prompt.format(element_desc=sample["elem_desc"])
+                elif task_type == ACTION_PREDICTION_TASK:
+                    choices_text = "\n".join(
+                        [
+                            f"{chr(ord('A')+i)}. {option}"
+                            for i, option in enumerate(sample["options"])
+                        ]
+                    )
+                    cur_prompt = prompt.format(
+                        bbox_ratio=sample["bbox"], choices_text=choices_text
+                    )
+                elif task_type == ACTION_GROUND_TASK:
+                    cur_prompt = prompt.format(instruction=sample["instruction"])
+                else:
+                    raise NotImplementedError(f"Task type {task_type} not implemented.")
+
+                batch_prompts.append(cur_prompt)
+                batch_images.append(sample["image"])
+                batch_task_types.append(task_type)
+                batch_golds.append(sample["answer"])
+
+            # Generate predictions for the batch
+            batch_responses, batch_token_stats = model_adapter.generate_batch(
+                batch_prompts, batch_images, batch_task_types
             )
-            cur_prompt = prompt.format(
-                bbox_ratio=sample["bbox"], choices_text=choices_text
-            )
-        elif task_type == ACTION_GROUND_TASK:
-            cur_prompt = prompt.format(instruction=sample["instruction"])
-        else:
-            raise NotImplementedError(f"Task type {task_type} not implemented.")
 
-        # Generate prediction using the model adapter
-        response = model_adapter(cur_prompt, sample["image"], task_type=task_type)
-        if isinstance(response, tuple):
-            response, num_tokens = response
-        else:
-            num_tokens = {
-                "input": 0,
-                "output": 0,
-                "total": 0,
-            }
-        acc_tokens["input"] += num_tokens["input"]
-        acc_tokens["output"] += num_tokens["output"]
-        acc_tokens["total"] += num_tokens["total"]
+            # Collect results
+            for response, num_tokens, gold in zip(
+                batch_responses, batch_token_stats, batch_golds
+            ):
+                acc_tokens["input"] += num_tokens["input"]
+                acc_tokens["output"] += num_tokens["output"]
+                acc_tokens["total"] += num_tokens["total"]
 
-        preds.append(response)
-        golds.append(sample["answer"])
+                preds.append(response)
+                golds.append(gold)
+    else:
+        # Single sample processing mode (original behavior)
+        for idx_ in tqdm(range(data_size), desc=task_type):
+            sample = dataset[idx_]
+
+            # Format prompt based on task type
+            if task_type in [CAPTION_TASK, HEADING_OCR_TASK]:
+                cur_prompt = prompt
+            elif task_type == WEBQA_TASK:
+                cur_prompt = prompt.format(question=sample["question"])
+            elif task_type == ELEMENT_OCR_TASK:
+                cur_prompt = prompt.format(bbox_ratio=sample["bbox"])
+            elif task_type == ELEMENT_GROUND_TASK:
+                cur_prompt = prompt.format(element_desc=sample["elem_desc"])
+            elif task_type == ACTION_PREDICTION_TASK:
+                choices_text = "\n".join(
+                    [
+                        f"{chr(ord('A')+i)}. {option}"
+                        for i, option in enumerate(sample["options"])
+                    ]
+                )
+                cur_prompt = prompt.format(
+                    bbox_ratio=sample["bbox"], choices_text=choices_text
+                )
+            elif task_type == ACTION_GROUND_TASK:
+                cur_prompt = prompt.format(instruction=sample["instruction"])
+            else:
+                raise NotImplementedError(f"Task type {task_type} not implemented.")
+
+            # Generate prediction using the model adapter
+            response = model_adapter(cur_prompt, sample["image"], task_type=task_type)
+            if isinstance(response, tuple):
+                response, num_tokens = response
+            else:
+                num_tokens = {
+                    "input": 0,
+                    "output": 0,
+                    "total": 0,
+                }
+            acc_tokens["input"] += num_tokens["input"]
+            acc_tokens["output"] += num_tokens["output"]
+            acc_tokens["total"] += num_tokens["total"]
+
+            preds.append(response)
+            golds.append(sample["answer"])
 
     # Compute evaluation metrics
     scores = eval_metric[task_type](preds, golds)
@@ -233,6 +303,7 @@ def main(args):
             - seed (int): Random seed for reproducibility
             - max_examples (int): Maximum examples per task (0 = unlimited)
             - engine (str): Inference engine choice ("pytorch" or "vllm")
+            - batch_size (int): Number of samples to process in each batch
 
     Side Effects:
         - Creates output directories if they don't exist
@@ -244,6 +315,9 @@ def main(args):
         - Multimodal Score: Average of ROUGE-1/F1 scores for text generation tasks
         - Grounding Score: Average accuracy for visual grounding tasks
     """
+    # Record start time for end-to-end timing
+    benchmark_start_time = time.time()
+
     # Set random seed for reproducible results
     set_random_seed(args.seed)
     print(f"Using random seed: {args.seed}")
@@ -255,6 +329,9 @@ def main(args):
     model_path = model_config.get("model_path")
 
     device = f"cuda:{args.gpus}"
+
+    # Initialize model_adapter to avoid potential assignment issues
+    model_adapter = None
 
     if model_config["model_adapter"] == "WorkflowUIAdapter":
         # Workflow UI models
@@ -268,9 +345,17 @@ def main(args):
 
         if args.engine == "pytorch":
             # PyTorch-based inference
-            from transformers import Qwen2_5_VLForConditionalGeneration
+            try:
+                from transformers import Qwen2_5_VLForConditionalGeneration
 
-            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                model_class = Qwen2_5_VLForConditionalGeneration
+            except ImportError:
+                # Fallback for different transformers versions
+                from transformers import AutoModelForCausalLM
+
+                model_class = AutoModelForCausalLM
+
+            model = model_class.from_pretrained(
                 model_path,
                 device_map=device,
                 torch_dtype=torch.bfloat16,
@@ -301,6 +386,7 @@ def main(args):
 
     # Store all results for summary
     all_results = {}
+    task_timings = {}
 
     # Evaluate on each task type
     for task_type in task_types:
@@ -325,14 +411,19 @@ def main(args):
                 os.path.join(args.dataset_name_or_path, task_type)
             )["test"]
 
-        # Run evaluation
+        # Run evaluation with timing
+        task_start_time = time.time()
         scores, preds, golds = evaluate(
             model_adapter=model_adapter,
             prompt=prompt,
             dataset=dataset,
             task_type=task_type,
             max_examples=args.max_examples,
+            batch_size=args.batch_size,
         )
+        task_end_time = time.time()
+        task_duration = task_end_time - task_start_time
+        task_timings[task_type] = task_duration
 
         # Store results for summary
         all_results[task_type] = scores
@@ -340,6 +431,7 @@ def main(args):
         # Format and print results
         score_str = ", ".join([f"{k}: {v:.2f}" for k, v in scores.items()])
         print(f"Model: {args.model_name}, Task: {task_type}, Scores: {score_str}")
+        print(f"Task {task_type} completed in {task_duration:.2f} seconds")
 
         # Save results to file
         output_res = [
@@ -349,11 +441,17 @@ def main(args):
             }
             for pred, gold in zip(preds, golds)
         ]
-        output_res = [{"score": score_str}] + output_res
+        output_res = [
+            {"score": score_str, "task_duration": f"{task_duration:.2f}s"}
+        ] + output_res
         with open(os.path.join(args.output_path, f"{task_type}.json"), "w") as f:
             json.dump(output_res, f, indent=2)
 
     # Display benchmark summary
+    # Calculate end-to-end timing
+    benchmark_end_time = time.time()
+    total_benchmark_time = benchmark_end_time - benchmark_start_time
+
     print("\n" + "=" * 80)
     print("BENCHMARK SUMMARY")
     print("=" * 80)
@@ -396,12 +494,23 @@ def main(args):
     else:
         print("\nGrounding Score: N/A (no grounding tasks evaluated)")
 
+    # Display timing results
+    print("\nBenchmark Timing:")
+    for task_type, duration in task_timings.items():
+        print(f"{task_type}: {duration:.2f} seconds")
+
+    print(f"\nTotal Benchmark Time: {total_benchmark_time:.2f} seconds")
+    print(
+        f"Average Time per Task: {total_benchmark_time / len(task_types):.2f} seconds"
+    )
+
     print("\n" + "=" * 80)
     print(f"Model: {args.model_name}")
     if multimodal_scores:
         print(f"Final Multimodal Score: {multimodal_score:.2f}")
     if grounding_scores:
         print(f"Final Grounding Score: {grounding_score:.2f}")
+    print(f"Total Execution Time: {total_benchmark_time:.2f} seconds")
     print("=" * 80)
 
 
@@ -454,6 +563,12 @@ if __name__ == "__main__":
         type=str,
         choices=["pytorch", "vllm"],
         help="Inference engine to use (pytorch or vllm).",
+    )
+    parser.add_argument(
+        "--batch_size",
+        default=1,
+        type=int,
+        help="Number of samples to process in each batch (only used with vLLM engine).",
     )
     args = parser.parse_args()
 

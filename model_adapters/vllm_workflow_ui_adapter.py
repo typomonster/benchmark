@@ -35,7 +35,7 @@ Note:
 import re
 import io
 import base64
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 import torch
 from PIL import Image
@@ -143,6 +143,160 @@ class VLLMWorkflowUIAdapter(BaseAdapter):
         # Call parent init with None model since we use self.llm
         super().__init__(None, None)
 
+    def generate_batch(
+        self,
+        queries: List[str],
+        images: List[Image.Image],
+        task_types: List[str],
+        sampling_params: Optional[SamplingParams] = None,
+    ) -> tuple[List[str], List[dict]]:
+        """
+        Generate responses for multiple samples using vLLM's batch processing.
+
+        This method efficiently processes multiple samples simultaneously,
+        leveraging vLLM's continuous batching capabilities for optimal throughput.
+        It handles:
+        1. Batch preparation of prompts and images
+        2. Parallel vision processing for all samples
+        3. Efficient batch inference through vLLM
+        4. Task-specific post-processing for each sample
+        5. Individual token tracking per sample
+
+        Args:
+            queries (List[str]): List of text prompts/questions for each sample.
+            images (List[Image.Image]): List of PIL Images to analyze.
+            task_types (List[str]): List of task identifiers for each sample.
+            sampling_params (Optional[SamplingParams]): Custom generation parameters.
+
+        Returns:
+            tuple[List[str], List[dict]]: A tuple containing:
+                - responses (List[str]): Post-processed outputs for each sample
+                - token_stats (List[dict]): Token usage statistics per sample
+
+        Note:
+            All input lists must have the same length. The order of outputs
+            corresponds to the order of inputs.
+        """
+        batch_size = len(queries)
+        assert (
+            len(images) == batch_size
+        ), "Number of images must match number of queries"
+        assert (
+            len(task_types) == batch_size
+        ), "Number of task types must match number of queries"
+
+        # Prepare batch inputs
+        llm_inputs = []
+        for query, image, task_type in zip(queries, images, task_types):
+            # Convert image to RGB format
+            image = image.convert("RGB")
+
+            # Format input according to Workflow UI's message structure
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image},  # Pass PIL Image directly
+                        {"type": "text", "text": query},
+                    ],
+                }
+            ]
+
+            # Preparation for inference using the processor
+            prompt = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+
+            # Process vision information for vLLM
+            image_inputs, video_inputs, video_kwargs = process_vision_info(
+                messages, return_video_kwargs=True
+            )
+
+            # Prepare multimodal data
+            mm_data = {}
+            if image_inputs is not None:
+                mm_data["image"] = image_inputs
+            if video_inputs is not None:
+                mm_data["video"] = video_inputs
+
+            # Prepare input for vLLM
+            llm_input = {
+                "prompt": prompt,
+                "multi_modal_data": mm_data,
+                "mm_processor_kwargs": video_kwargs,
+            }
+            llm_inputs.append(llm_input)
+
+        # Use provided sampling params or default
+        params = sampling_params or self.sampling_params
+
+        # Generate using vLLM batch processing
+        outputs = self.llm.generate(
+            llm_inputs,
+            sampling_params=params,
+            use_tqdm=False,
+        )
+
+        # Process outputs
+        responses = []
+        token_stats = []
+
+        for i, (output, task_type) in enumerate(zip(outputs, task_types)):
+            # Extract response
+            response = output.outputs[0].text
+
+            # Calculate token counts
+            num_input_tokens = len(output.prompt_token_ids)
+            num_output_tokens = len(output.outputs[0].token_ids)
+            num_tokens = {
+                "input": num_input_tokens,
+                "output": num_output_tokens,
+                "total": num_input_tokens + num_output_tokens,
+            }
+
+            # Post-process output based on task type
+            processed_response = self._post_process_response(response, task_type)
+
+            responses.append(processed_response)
+            token_stats.append(num_tokens)
+
+        return responses, token_stats
+
+    def _post_process_response(self, response: str, task_type: str) -> str:
+        """
+        Apply task-specific post-processing to model outputs.
+
+        This method handles the different output formats expected by each task,
+        extracting relevant information and cleaning up the response.
+
+        Args:
+            response (str): Raw model output text.
+            task_type (str): Task identifier determining processing strategy.
+
+        Returns:
+            str: Post-processed response ready for evaluation.
+        """
+        if task_type == CAPTION_TASK:
+            # Extract content from HTML meta tag format
+            pattern = re.compile(r"<meta name=\"description\" content=\"(.*)\">")
+            cur_meta = re.findall(pattern, response)
+            if cur_meta:
+                return cur_meta[0]
+            else:
+                return response
+        elif task_type == ACTION_PREDICTION_TASK:
+            # Return first character in uppercase for multiple choice tasks
+            return response[0].upper() if response else "A"
+        elif task_type in [WEBQA_TASK, ELEMENT_OCR_TASK]:
+            # Extract text after colon separator and clean quotes
+            if ":" not in response:
+                return response
+            response = ":".join(response.split(":")[1:])
+            response = response.strip().strip('"').strip("'")
+            return response
+        else:
+            return response
+
     def generate(
         self,
         query: str,
@@ -194,87 +348,11 @@ class VLLMWorkflowUIAdapter(BaseAdapter):
             - Use smaller max_tokens for faster response times
             - Enable tensor parallelism for large models
         """
-        # Convert image to RGB format
-        image = image.convert("RGB")
-
-        # Format input according to Workflow UI's message structure
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image},  # Pass PIL Image directly
-                    {"type": "text", "text": query},
-                ],
-            }
-        ]
-
-        # Preparation for inference using the processor
-        prompt = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
+        # Use batch processing for single sample (maintains compatibility)
+        responses, token_stats = self.generate_batch(
+            [query], [image], [task_type], sampling_params
         )
-
-        # Process vision information for vLLM
-        image_inputs, video_inputs, video_kwargs = process_vision_info(
-            messages, return_video_kwargs=True
-        )
-
-        # Prepare multimodal data
-        mm_data = {}
-        if image_inputs is not None:
-            mm_data["image"] = image_inputs
-        if video_inputs is not None:
-            mm_data["video"] = video_inputs
-
-        # Prepare input for vLLM
-        llm_inputs = {
-            "prompt": prompt,
-            "multi_modal_data": mm_data,
-            "mm_processor_kwargs": video_kwargs,
-        }
-
-        # Use provided sampling params or default
-        params = sampling_params or self.sampling_params
-
-        # Generate using vLLM
-        outputs = self.llm.generate(
-            [llm_inputs],
-            sampling_params=params,
-            use_tqdm=False,
-        )
-
-        # Extract response
-        response = outputs[0].outputs[0].text
-
-        # Calculate token counts
-        num_input_tokens = len(outputs[0].prompt_token_ids)
-        num_output_tokens = len(outputs[0].outputs[0].token_ids)
-        num_tokens = {
-            "input": num_input_tokens,
-            "output": num_output_tokens,
-            "total": num_input_tokens + num_output_tokens,
-        }
-
-        # Post-process output based on task type
-        if task_type == CAPTION_TASK:
-            # Extract content from HTML meta tag format
-            pattern = re.compile(r"<meta name=\"description\" content=\"(.*)\">")
-            cur_meta = re.findall(pattern, response)
-            if cur_meta:
-                return cur_meta[0], num_tokens
-            else:
-                return response, num_tokens
-        elif task_type == ACTION_PREDICTION_TASK:
-            # Return first character in uppercase for multiple choice tasks
-            return response[0].upper() if response else "A", num_tokens
-        elif task_type in [WEBQA_TASK, ELEMENT_OCR_TASK]:
-            # Extract text after colon separator and clean quotes
-            if ":" not in response:
-                return response, num_tokens
-            response = ":".join(response.split(":")[1:])
-            response = response.strip().strip('"').strip("'")
-            return response, num_tokens
-        else:
-            return response, num_tokens
+        return responses[0], token_stats[0]
 
     def update_sampling_params(self, **kwargs):
         """
