@@ -14,6 +14,8 @@ import os
 import json
 import yaml
 import argparse
+import random
+import numpy as np
 from tqdm import tqdm
 
 import datasets
@@ -42,6 +44,30 @@ eval_metric = {
     ACTION_PREDICTION_TASK: eval_action_prediction,
     ACTION_GROUND_TASK: eval_action_ground,
 }
+
+
+def set_random_seed(seed):
+    """
+    Set random seed for reproducible results.
+
+    Args:
+        seed (int): Random seed value
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # Set deterministic behavior for CUDA operations
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # Set transformers seed
+    try:
+        import transformers
+
+        transformers.set_seed(seed)
+    except ImportError:
+        pass
 
 
 def evaluate(
@@ -146,6 +172,10 @@ def main(args):
         args: Command line arguments containing model name, task type, dataset path,
               output path, and other configuration options.
     """
+    # Set random seed for reproducible results
+    set_random_seed(args.seed)
+    print(f"Using random seed: {args.seed}")
+
     # Load model configuration
     model_config = yaml.load(
         open(f"configs/{args.model_name}.yaml"), Loader=yaml.FullLoader
@@ -252,6 +282,12 @@ if __name__ == "__main__":
         default="0",
         type=str,
         help="A single GPU like 1 or multiple GPUs like 0,2",
+    )
+    parser.add_argument(
+        "--seed",
+        default=42,
+        type=int,
+        help="Random seed for reproducible results",
     )
     args = parser.parse_args()
 
