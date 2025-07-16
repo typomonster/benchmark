@@ -137,7 +137,7 @@ class VLLMWorkflowUIAdapter(BaseAdapter):
         self.sampling_params = SamplingParams(
             temperature=0.7,
             top_p=0.95,
-            max_tokens=512,
+            max_tokens=128,
         )
 
         # Call parent init with None model since we use self.llm

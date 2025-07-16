@@ -90,6 +90,7 @@ def evaluate(
     task_type: str,
     max_examples: int = 0,
     batch_size: int = 1,
+    repeat: int = 1,
     **kwargs,
 ):
     """
@@ -125,6 +126,9 @@ def evaluate(
         batch_size (int, optional): Number of samples to process in each batch.
                                    Only used if the adapter supports batch processing.
                                    Defaults to 1 (single sample processing).
+        repeat (int, optional): Number of times to repeat the dataset for evaluation.
+                               This augments the dataset size by cycling through the
+                               original samples. Defaults to 1 (no repetition).
         **kwargs: Additional arguments passed to task-specific evaluation functions.
 
     Returns:
@@ -145,11 +149,20 @@ def evaluate(
     print("=" * 80)
     print("Prompt: ", prompt)
 
+    # Calculate effective dataset size with repetition
+    original_size = len(dataset)
+    effective_size = original_size * repeat
+
     # Limit dataset size if max_examples is specified
-    data_size = len(dataset)
+    data_size = effective_size
     if max_examples > 0:
         data_size = min(data_size, max_examples)
         print(f"Limiting evaluation to first {data_size} examples")
+
+    if repeat > 1:
+        print(
+            f"Dataset will be repeated {repeat} times (original size: {original_size}, effective size: {effective_size})"
+        )
 
     # Check if adapter supports batch processing
     supports_batch = hasattr(model_adapter, "generate_batch") and batch_size > 1
@@ -167,7 +180,9 @@ def evaluate(
             range(0, data_size, batch_size), desc=f"{task_type} (batch)"
         ):
             end_idx = min(start_idx + batch_size, data_size)
-            batch_samples = [dataset[idx_] for idx_ in range(start_idx, end_idx)]
+            batch_samples = [
+                dataset[idx_ % original_size] for idx_ in range(start_idx, end_idx)
+            ]
 
             # Prepare batch data
             batch_prompts = []
@@ -223,7 +238,7 @@ def evaluate(
     else:
         # Single sample processing mode (original behavior)
         for idx_ in tqdm(range(data_size), desc=task_type):
-            sample = dataset[idx_]
+            sample = dataset[idx_ % original_size]
 
             # Format prompt based on task type
             if task_type in [CAPTION_TASK, HEADING_OCR_TASK]:
@@ -304,6 +319,7 @@ def main(args):
             - max_examples (int): Maximum examples per task (0 = unlimited)
             - engine (str): Inference engine choice ("pytorch" or "vllm")
             - batch_size (int): Number of samples to process in each batch
+            - repeat (int): Number of times to repeat the dataset for evaluation
 
     Side Effects:
         - Creates output directories if they don't exist
@@ -420,6 +436,7 @@ def main(args):
             task_type=task_type,
             max_examples=args.max_examples,
             batch_size=args.batch_size,
+            repeat=args.repeat,
         )
         task_end_time = time.time()
         task_duration = task_end_time - task_start_time
@@ -569,6 +586,12 @@ if __name__ == "__main__":
         default=1,
         type=int,
         help="Number of samples to process in each batch (only used with vLLM engine).",
+    )
+    parser.add_argument(
+        "--repeat",
+        default=1,
+        type=int,
+        help="Number of times to repeat the dataset for evaluation (augments dataset size).",
     )
     args = parser.parse_args()
 
