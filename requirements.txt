@@ -18,3 +18,4 @@ matplotlib
 einops
 accelerate
 huggingface-hub
+vllm==0.8.5

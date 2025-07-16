@@ -1,2 +1,3 @@
 from .base_adapter import BaseAdapter
 from .workflow_ui_adapter import WorkflowUIAdapter
+from .vllm_workflow_ui_adapter import VLLMWorkflowUIAdapter

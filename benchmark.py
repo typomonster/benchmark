@@ -193,22 +193,36 @@ def main(args):
 
     if model_config["model_adapter"] == "WorkflowUIAdapter":
         # Workflow UI models
-        from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+        from transformers import AutoProcessor
 
         processor = AutoProcessor.from_pretrained(
             model_path,
             trust_remote_code=True,
             use_fast=True,
         )
-        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            model_path,
-            device_map=device,
-            torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
-        )
-        model_adapter = getattr(model_adapters, model_config["model_adapter"])(
-            model, processor
-        )
+
+        if args.engine == "pytorch":
+            # PyTorch-based inference
+            from transformers import Qwen2_5_VLForConditionalGeneration
+
+            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                model_path,
+                device_map=device,
+                torch_dtype=torch.bfloat16,
+                trust_remote_code=True,
+            )
+            model_adapter = getattr(model_adapters, model_config["model_adapter"])(
+                model, processor
+            )
+        elif args.engine == "vllm":
+            # vLLM-based inference
+            model_adapter = model_adapters.VLLMWorkflowUIAdapter(
+                model_path=model_path,
+                processor=processor,
+                tensor_parallel_size=1,  # Can be configured based on available GPUs
+                gpu_memory_utilization=0.9,
+                max_model_len=None,  # Will use model's default
+            )
     else:
         raise NotImplementedError(
             f"Model adapter {model_config['model_adapter']} not implemented."
@@ -284,9 +298,16 @@ def main(args):
     multimodal_scores = []
 
     for task in multimodal_tasks:
-        if task in all_results and "rouge_1" in all_results[task]:
-            multimodal_scores.append(all_results[task]["rouge_1"])
-            print(f"{task}['rouge_1']: {all_results[task]['rouge_1']:.2f}")
+        if task == WEBQA_TASK:
+            # WebQA uses F1 score
+            if task in all_results and "f1" in all_results[task]:
+                multimodal_scores.append(all_results[task]["f1"])
+                print(f"{task}['f1']: {all_results[task]['f1']:.2f}")
+        else:
+            # Other multimodal tasks use ROUGE-1
+            if task in all_results and "rouge_1" in all_results[task]:
+                multimodal_scores.append(all_results[task]["rouge_1"])
+                print(f"{task}['rouge_1']: {all_results[task]['rouge_1']:.2f}")
 
     if multimodal_scores:
         multimodal_score = np.mean(multimodal_scores)
@@ -361,6 +382,13 @@ if __name__ == "__main__":
         default=0,
         type=int,
         help="Maximum number of examples to evaluate per task (0 means no limit).",
+    )
+    parser.add_argument(
+        "--engine",
+        default="pytorch",
+        type=str,
+        choices=["pytorch", "vllm"],
+        help="Inference engine to use (pytorch or vllm).",
     )
     args = parser.parse_args()
 

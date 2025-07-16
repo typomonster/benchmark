@@ -13,6 +13,7 @@ export MODEL_NAME=7b
 TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_ground
 SEED=""
 MAX_EXAMPLES=""
+ENGINE="pytorch"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -33,9 +34,13 @@ while [[ $# -gt 0 ]]; do
             MAX_EXAMPLES="$2"
             shift 2
             ;;
+        --engine)
+            ENGINE="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>]"
+            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm]"
             exit 1
             ;;
     esac
@@ -54,6 +59,11 @@ fi
 # Add max_examples if provided
 if [[ -n "$MAX_EXAMPLES" ]]; then
     PYTHON_CMD="$PYTHON_CMD --max_examples $MAX_EXAMPLES"
+fi
+
+# Add engine if different from default
+if [[ "$ENGINE" != "pytorch" ]]; then
+    PYTHON_CMD="$PYTHON_CMD --engine $ENGINE"
 fi
 
 # Execute the command
