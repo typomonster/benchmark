@@ -181,10 +181,8 @@ def main(args):
         open(f"configs/{args.model_name}.yaml"), Loader=yaml.FullLoader
     )
     model_path = model_config.get("model_path")
-    tokenizer_path = model_config.get("tokenizer_path", model_path)
 
     device = f"cuda:{args.gpus}"
-    model_name = model_path.split("/")[-1].lower()
 
     if model_config["model_adapter"] == "WorkflowUIAdapter":
         # Workflow UI models
@@ -225,7 +223,18 @@ def main(args):
         )
 
         # Load dataset for the specific task
-        dataset = datasets.load_dataset(args.dataset_name_or_path, task_type)["test"]
+        import glob
+
+        arrow_files = glob.glob(
+            os.path.join(args.dataset_name_or_path, task_type, "**/*.arrow"),
+            recursive=True,
+        )
+        if arrow_files:
+            dataset = datasets.load_dataset("arrow", data_files=arrow_files)["test"]
+        else:
+            dataset = datasets.load_from_disk(
+                os.path.join(args.dataset_name_or_path, task_type)
+            )["test"]
 
         # Run evaluation
         scores, preds, golds = evaluate(
