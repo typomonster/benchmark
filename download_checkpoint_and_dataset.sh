@@ -31,9 +31,19 @@ import os
 from datasets import load_dataset
 
 dataset_path = os.path.join('$ROOT_DIR', 'datasets', 'VisualWebBench')
-dataset = load_dataset('visualwebbench/VisualWebBench')
-dataset.save_to_disk(dataset_path)
-print(f'Dataset downloaded to: {dataset_path}')
+os.makedirs(dataset_path, exist_ok=True)
+
+# Available configs for VisualWebBench
+configs = ['action_ground', 'action_prediction', 'element_ground', 'element_ocr', 'heading_ocr', 'web_caption', 'webqa']
+
+for config in configs:
+    print(f'Downloading config: {config}')
+    dataset = load_dataset('visualwebbench/VisualWebBench', config)
+    config_path = os.path.join(dataset_path, config)
+    dataset.save_to_disk(config_path)
+    print(f'Config {config} downloaded to: {config_path}')
+
+print(f'All dataset configs downloaded to: {dataset_path}')
 "
 
 echo "Download completed!"
