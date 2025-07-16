@@ -14,6 +14,7 @@ TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_
 SEED=""
 MAX_EXAMPLES=""
 ENGINE="pytorch"
+BATCH_SIZE="1"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -38,9 +39,13 @@ while [[ $# -gt 0 ]]; do
             ENGINE="$2"
             shift 2
             ;;
+        --batch-size)
+            BATCH_SIZE="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm]"
+            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm] [--batch-size <batch_size>]"
             exit 1
             ;;
     esac
@@ -64,6 +69,11 @@ fi
 # Add engine if different from default
 if [[ "$ENGINE" != "pytorch" ]]; then
     PYTHON_CMD="$PYTHON_CMD --engine $ENGINE"
+fi
+
+# Add batch_size if different from default
+if [[ "$BATCH_SIZE" != "1" ]]; then
+    PYTHON_CMD="$PYTHON_CMD --batch_size $BATCH_SIZE"
 fi
 
 # Execute the command
