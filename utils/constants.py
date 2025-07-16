@@ -1,3 +1,11 @@
+"""
+Constants for visual web understanding task types.
+
+This module defines constants for all task types supported by the VisualWebBench
+benchmark. These constants are used throughout the codebase to identify and
+handle different evaluation tasks.
+"""
+
 # Web page caption generation task
 CAPTION_TASK = "web_caption"
 

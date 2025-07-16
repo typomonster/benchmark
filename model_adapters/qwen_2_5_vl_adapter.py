@@ -1,3 +1,10 @@
+"""
+Adapter implementation for Qwen 2.5 VL vision-language models.
+
+This module provides the Qwen25VLAdapter class which handles model inference
+for Qwen 2.5 VL models. It manages image encoding, prompt formatting, and
+task-specific response post-processing for various visual web understanding tasks.
+"""
 import re
 import io
 import base64

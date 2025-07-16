@@ -1,3 +1,14 @@
+"""
+Benchmark evaluation script for visual web understanding models.
+
+This module provides functionality to evaluate different visual language models
+on the VisualWebBench dataset across multiple tasks including web captioning,
+OCR tasks, element grounding, action prediction, and visual question answering.
+
+The evaluation pipeline supports multiple model adapters and can evaluate on
+single or multiple tasks simultaneously, computing task-specific metrics and
+saving results to JSON files.
+"""
 import os
 import json
 import yaml

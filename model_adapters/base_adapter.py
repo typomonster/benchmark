@@ -1,3 +1,9 @@
+"""
+Base adapter module for vision-language models.
+
+This module provides the abstract base class that defines the interface
+for all model adapters in the VisualWebBench evaluation framework.
+"""
 from abc import ABC, abstractmethod
 
 from PIL import Image

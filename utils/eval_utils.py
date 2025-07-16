@@ -1,3 +1,11 @@
+"""
+Evaluation utilities for visual web understanding tasks.
+
+This module provides evaluation functions for various tasks in the VisualWebBench
+benchmark including web captioning, OCR tasks, element/action grounding, and
+visual question answering. Each function computes task-specific metrics such as
+ROUGE scores, accuracy, precision, or F1 scores.
+"""
 import re
 
 import numpy as np
