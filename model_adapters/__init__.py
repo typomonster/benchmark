@@ -1,2 +1,2 @@
 from .base_adapter import BaseAdapter
-from .qwen_2_5_vl_adapter import WorkflowUIAdapter
+from .workflow_ui_adapter import WorkflowUIAdapter
