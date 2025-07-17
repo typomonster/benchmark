@@ -65,7 +65,15 @@ def get_feature_info(dataset: Dataset) -> List[Dict[str, Any]]:
             else:
                 feature_dict["dtype"] = str(feature._type).lower()
         else:
-            feature_dict["dtype"] = "string"
+            # Handle cases where feature type is not directly detectable
+            # Try to infer from the Python type name
+            type_str = str(type(feature))
+            if "Image" in type_str:
+                feature_dict["dtype"] = "image"
+            elif "list" in type_str or "sequence" in type_str.lower():
+                feature_dict["sequence"] = "int64"  # Default for sequences
+            else:
+                feature_dict["dtype"] = "string"
 
         features.append(feature_dict)
 
