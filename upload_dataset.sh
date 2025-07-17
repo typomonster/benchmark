@@ -150,16 +150,44 @@ def upload_dataset(dataset_path, repo_name, organization=None, private=False):
 
 def generate_dataset_card(dataset_path, repo_name):
     """
-    Use existing README.md from the source directory if available, otherwise skip.
+    Generate or use existing README.md with proper dataset metadata.
     """
+    import shutil
+    import subprocess
+    import sys
+    
     # First, check the current directory (project root) for README.md
     current_dir_readme = "README.md"
     dataset_readme = os.path.join(dataset_path, "README.md")
     
+    # Check if we have the metadata generation script
+    metadata_script = "generate_dataset_metadata.py"
+    
+    if os.path.exists(metadata_script):
+        print("Generating dataset metadata...")
+        try:
+            # Run the metadata generation script
+            result = subprocess.run([
+                sys.executable, metadata_script,
+                "--dataset_name_or_path", dataset_path,
+                "--format", "frontmatter",
+                "--readme_file", dataset_readme
+            ], capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                print("Dataset metadata generated successfully")
+                print(result.stdout)
+                return True
+            else:
+                print(f"Error generating metadata: {result.stderr}")
+                # Fall back to existing README if available
+        except Exception as e:
+            print(f"Error running metadata generation: {e}")
+    
+    # Fallback: use existing README.md if available
     if os.path.exists(current_dir_readme):
         print(f"Using existing README.md from project root: {current_dir_readme}")
         # Copy the README.md to the dataset directory so it gets uploaded
-        import shutil
         shutil.copy2(current_dir_readme, dataset_readme)
         return True
     elif os.path.exists(dataset_readme):
