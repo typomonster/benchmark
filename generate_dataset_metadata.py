@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Dict, List, Any
 import datasets
 from datasets import Dataset
-from huggingface_hub import DatasetInfo
 
 
 def get_feature_info(dataset: Dataset) -> List[Dict[str, Any]]:
@@ -109,6 +108,17 @@ def calculate_dataset_size(dataset: Dataset) -> int:
             if task_type in size_estimates:
                 return size_estimates[task_type] * num_examples
 
+            # If task_type is not in the sample, try to infer from column names
+            # This helps with local datasets that might have different structure
+            if "instruction" in sample:
+                return size_estimates["action_ground"] * num_examples
+            elif "elem_desc" in sample and "options" in sample:
+                return size_estimates["element_ground"] * num_examples
+            elif "bbox" in sample and "elem_desc" in sample:
+                return size_estimates["element_ocr"] * num_examples
+            elif "question" in sample:
+                return size_estimates["webqa"] * num_examples
+
         # Default estimate: 800KB per example
         return 800000 * num_examples
 
@@ -149,21 +159,60 @@ def generate_dataset_metadata(
 
     print("Analyzing dataset structure...")
 
+    # Check if this is a local path or HuggingFace dataset
+    is_local_path = os.path.exists(dataset_name_or_path)
+
     for config_name in task_configs:
         try:
             print(f"Processing config: {config_name}")
 
-            # Load dataset for this config
-            dataset = datasets.load_dataset(dataset_name_or_path, config_name)
+            dataset = None
+            test_split = None
 
-            # Process test split (assuming that's what we have)
-            test_split = dataset.get("test")
-            if test_split is None:
-                # Try other possible split names
-                for split_name in ["train", "validation", "dev"]:
-                    if split_name in dataset:
-                        test_split = dataset[split_name]
-                        break
+            if is_local_path:
+                # Handle local dataset directory structure
+                config_path = os.path.join(dataset_name_or_path, config_name)
+                if os.path.exists(config_path):
+                    # Try to load from subdirectory
+                    try:
+                        dataset = datasets.load_from_disk(config_path)
+                        if isinstance(dataset, dict):
+                            # If it's a DatasetDict, get the test split
+                            test_split = dataset.get(
+                                "test", dataset.get("train", list(dataset.values())[0])
+                            )
+                        else:
+                            # If it's a single dataset, use it directly
+                            test_split = dataset
+                    except Exception:
+                        # Fallback: try to load parquet files directly
+                        parquet_files = []
+                        for file in os.listdir(config_path):
+                            if file.endswith(".parquet"):
+                                parquet_files.append(os.path.join(config_path, file))
+
+                        if parquet_files:
+                            test_split = datasets.load_dataset(
+                                "parquet", data_files=parquet_files
+                            )["train"]
+                        else:
+                            print(f"Warning: No parquet files found in {config_path}")
+                            continue
+                else:
+                    print(f"Warning: Config directory {config_path} not found")
+                    continue
+            else:
+                # Handle HuggingFace dataset
+                dataset = datasets.load_dataset(dataset_name_or_path, config_name)
+
+                # Process test split (assuming that's what we have)
+                test_split = dataset.get("test")
+                if test_split is None:
+                    # Try other possible split names
+                    for split_name in ["train", "validation", "dev"]:
+                        if split_name in dataset:
+                            test_split = dataset[split_name]
+                            break
 
             if test_split is None:
                 print(f"Warning: No test split found for {config_name}")
