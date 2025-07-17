@@ -427,11 +427,15 @@ def main(args):
             dataset = datasets.load_dataset("parquet", data_files=parquet_files)[
                 "train"
             ]
+            # Convert image bytes to PIL Image objects if needed
             if "image" in dataset.column_names:
-                dataset["image"] = dataset["image"].map(
-                    lambda x: Image.open(io.BytesIO(x))
-                )
-                dataset.remove_columns_("images")
+
+                def process_image(example):
+                    if isinstance(example["image"], bytes):
+                        example["image"] = Image.open(io.BytesIO(example["image"]))
+                    return example
+
+                dataset = dataset.map(process_image)
         else:
             # Fall back to arrow files
             arrow_files = glob.glob(
@@ -615,14 +619,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--engine",
-        default="pytorch",
+        default="vllm",
         type=str,
         choices=["pytorch", "vllm"],
         help="Inference engine to use (pytorch or vllm).",
     )
     parser.add_argument(
         "--batch_size",
-        default=1,
+        default=32,
         type=int,
         help="Number of samples to process in each batch (only used with vLLM engine).",
     )
