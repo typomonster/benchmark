@@ -18,6 +18,8 @@ import random
 import numpy as np
 import time
 from tqdm import tqdm
+import io
+from PIL import Image
 
 import datasets
 import torch
@@ -425,6 +427,11 @@ def main(args):
             dataset = datasets.load_dataset("parquet", data_files=parquet_files)[
                 "train"
             ]
+            if "image" in dataset.column_names:
+                dataset["image"] = dataset["image"].map(
+                    lambda x: Image.open(io.BytesIO(x))
+                )
+                dataset.remove_columns_("images")
         else:
             # Fall back to arrow files
             arrow_files = glob.glob(
