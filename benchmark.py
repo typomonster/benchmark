@@ -416,19 +416,37 @@ def main(args):
         # Load dataset for the specific task
         import glob
 
-        arrow_files = glob.glob(
-            os.path.join(args.dataset_name_or_path, task_type, "**/*.arrow"),
+        # First try to load parquet files
+        parquet_files = glob.glob(
+            os.path.join(args.dataset_name_or_path, task_type, "**/*.parquet"),
             recursive=True,
         )
-        if arrow_files:
-            dataset = datasets.load_dataset("arrow", data_files=arrow_files)["train"]
-        else:
-            # dataset = datasets.load_from_disk(
-            #     os.path.join(args.dataset_name_or_path, task_type)
-            # )["test"]
-            dataset = datasets.load_dataset(args.dataset_name_or_path, task_type)[
-                "test"
+        if parquet_files:
+            dataset = datasets.load_dataset("parquet", data_files=parquet_files)[
+                "train"
             ]
+        else:
+            # Fall back to arrow files
+            arrow_files = glob.glob(
+                os.path.join(args.dataset_name_or_path, task_type, "**/*.arrow"),
+                recursive=True,
+            )
+            if arrow_files:
+                dataset = datasets.load_dataset("arrow", data_files=arrow_files)[
+                    "train"
+                ]
+            else:
+                # Fall back to loading from local disk or huggingface hub
+                try:
+                    # Try loading from local disk first
+                    dataset = datasets.load_from_disk(
+                        os.path.join(args.dataset_name_or_path, task_type)
+                    )["test"]
+                except:
+                    # Finally, try loading from huggingface hub
+                    dataset = datasets.load_dataset(
+                        args.dataset_name_or_path, task_type
+                    )["test"]
 
         # Run evaluation with timing
         task_start_time = time.time()

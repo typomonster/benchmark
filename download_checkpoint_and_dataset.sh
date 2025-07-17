@@ -39,9 +39,18 @@ configs = ['action_ground', 'action_prediction', 'element_ground', 'element_ocr'
 for config in configs:
     print(f'Downloading config: {config}')
     dataset = load_dataset('leo5072/VisualWebBench', config)
+    
+    # Create config directory
     config_path = os.path.join(dataset_path, config)
-    dataset.save_to_disk(config_path)
-    print(f'Config {config} downloaded to: {config_path}')
+    os.makedirs(config_path, exist_ok=True)
+    
+    # Save test split as parquet file
+    if 'test' in dataset:
+        parquet_file = os.path.join(config_path, 'test-00000-of-00001.parquet')
+        dataset['test'].to_parquet(parquet_file)
+        print(f'Config {config} test split saved to: {parquet_file}')
+    else:
+        print(f'Warning: No test split found for config {config}')
 
 print(f'All dataset configs downloaded to: {dataset_path}')
 "
