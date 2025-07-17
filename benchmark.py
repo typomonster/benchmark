@@ -473,41 +473,52 @@ def main(args):
     print("BENCHMARK SUMMARY")
     print("=" * 80)
 
-    # Calculate multimodal score
+    # Calculate multimodal score (weighted average)
     multimodal_tasks = [ELEMENT_OCR_TASK, HEADING_OCR_TASK, WEBQA_TASK]
     multimodal_scores = []
+    multimodal_weights = []
 
     for task in multimodal_tasks:
         if task == WEBQA_TASK:
             # WebQA uses F1 score
             if task in all_results and "f1" in all_results[task]:
                 multimodal_scores.append(all_results[task]["f1"])
-                print(f"{task}['f1']: {all_results[task]['f1']:.2f}")
+                multimodal_weights.append(all_results[task]["data_size"])
+                print(
+                    f"{task}['f1']: {all_results[task]['f1']:.2f} (n={all_results[task]['data_size']})"
+                )
         else:
             # Other multimodal tasks use ROUGE-1
             if task in all_results and "rouge_1" in all_results[task]:
                 multimodal_scores.append(all_results[task]["rouge_1"])
-                print(f"{task}['rouge_1']: {all_results[task]['rouge_1']:.2f}")
+                multimodal_weights.append(all_results[task]["data_size"])
+                print(
+                    f"{task}['rouge_1']: {all_results[task]['rouge_1']:.2f} (n={all_results[task]['data_size']})"
+                )
 
     if multimodal_scores:
-        multimodal_score = np.mean(multimodal_scores)
-        print(f"\nMultimodal Score: {multimodal_score:.2f}")
+        multimodal_score = np.average(multimodal_scores, weights=multimodal_weights)
+        print(f"\nMultimodal Score (weighted average): {multimodal_score:.2f}")
     else:
         print("\nMultimodal Score: N/A (no multimodal tasks evaluated)")
 
-    # Calculate grounding score
+    # Calculate grounding score (weighted average)
     grounding_tasks = [ACTION_GROUND_TASK, ACTION_PREDICTION_TASK, ELEMENT_GROUND_TASK]
     grounding_scores = []
+    grounding_weights = []
 
     print("\nGrounding Task Results:")
     for task in grounding_tasks:
         if task in all_results and "accuracy" in all_results[task]:
             grounding_scores.append(all_results[task]["accuracy"])
-            print(f"{task}['accuracy']: {all_results[task]['accuracy']:.2f}")
+            grounding_weights.append(all_results[task]["data_size"])
+            print(
+                f"{task}['accuracy']: {all_results[task]['accuracy']:.2f} (n={all_results[task]['data_size']})"
+            )
 
     if grounding_scores:
-        grounding_score = np.mean(grounding_scores)
-        print(f"\nGrounding Score: {grounding_score:.2f}")
+        grounding_score = np.average(grounding_scores, weights=grounding_weights)
+        print(f"\nGrounding Score (weighted average): {grounding_score:.2f}")
     else:
         print("\nGrounding Score: N/A (no grounding tasks evaluated)")
 
