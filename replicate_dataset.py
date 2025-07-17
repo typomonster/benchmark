@@ -92,7 +92,12 @@ if __name__ == "__main__":
     default_replication_factor = int(sys.argv[3]) if len(sys.argv) > 3 else 10
 
     # Set custom factors for specific datasets
-    custom_factors = {"heading_ocr": 5, "webqa": 5, "element_ground": 8}
+    custom_factors = {
+        "heading_ocr": 5,
+        "webqa": 5,
+        "element_ground": 3,
+        "element_ocr": 20,
+    }
 
     replicate_dataset(
         original_path, output_path, default_replication_factor, custom_factors
