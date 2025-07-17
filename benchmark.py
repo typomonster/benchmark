@@ -24,6 +24,10 @@ from PIL import Image
 import datasets
 import torch
 
+from datasets import set_caching_enabled
+
+set_caching_enabled(False)
+
 import model_adapters
 from utils import DEFAULT_PROMPTS
 from utils import (
@@ -434,7 +438,7 @@ def main(args):
                     example["image"] = Image.open(io.BytesIO(example["image"]["bytes"]))
                     return example
 
-                dataset = dataset.map(process_image)
+                dataset = dataset.map(process_image, num_proc=16)
         else:
             # Fall back to arrow files
             arrow_files = glob.glob(
