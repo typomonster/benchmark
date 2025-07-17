@@ -24,10 +24,6 @@ from PIL import Image
 import datasets
 import torch
 
-from datasets import set_caching_enabled
-
-set_caching_enabled(False)
-
 import model_adapters
 from utils import DEFAULT_PROMPTS
 from utils import (
