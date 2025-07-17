@@ -152,91 +152,50 @@ def generate_dataset_card(dataset_path, repo_name):
     """
     Generate a README.md file for the dataset.
     """
-    readme_content = f"""# {repo_name}
+    readme_content = f"""# Augmented {repo_name}
 
-This is a replicated version of the VisualWebBench dataset, expanded by 5x for benchmarking purposes.
+Dataset for the paper: [VisualWebBench: How Far Have Multimodal LLMs Evolved in Web Page Understanding and Grounding?](https://arxiv.org/abs/2404.05955)
 
-## Dataset Description
+[**🌐 Homepage**](https://visualwebbench.github.io/) | [**🐍 GitHub**](https://github.com/VisualWebBench/VisualWebBench) | [**📖 arXiv**](https://arxiv.org/abs/2404.05955)
 
-VisualWebBench is a comprehensive benchmark for evaluating multimodal large language models on web-based tasks. This replicated version contains 5x the original data for more robust evaluation.
 
-## Dataset Structure
+## Introduction
 
-The dataset contains the following subsets:
-- `action_ground`: Action grounding tasks
-- `action_prediction`: Action prediction tasks  
-- `element_ground`: Element grounding tasks
-- `element_ocr`: Element OCR tasks
-- `heading_ocr`: Heading OCR tasks
-- `web_caption`: Web caption tasks
-- `webqa`: Web QA tasks
+We introduce **VisualWebBench**, a multimodal benchmark designed to assess the **understanding and grounding capabilities of MLLMs in web scenarios**. VisualWebBench consists of **seven tasks**, and comprises **1.5K** human-curated instances from **139** real websites, covering 87 sub-domains. We evaluate 14 open-source MLLMs, Gemini Pro, Claude 3, and GPT-4V(ision) on WebBench, revealing significant challenges and performance gaps. Further analysis highlights the limitations of current MLLMs, including inadequate grounding in text-rich environments and subpar performance with low-resolution image inputs. We believe VisualWebBench will serve as a valuable resource for the research community and contribute to the creation of more powerful and versatile MLLMs for web-related applications.
 
-## Usage
+![Alt text](https://raw.githubusercontent.com/VisualWebBench/VisualWebBench/main/assets/main.png)
 
-```python
-from datasets import load_dataset
+## Benchmark Construction
+We introduce VisualWebBench, a comprehensive multimodal benchmark designed to assess the capabilities of MLLMs in the web domain. Inspired by the human interaction process with web browsers, VisualWebBench consists of seven tasks that map to core abilities required for web tasks: captioning, webpage QA, heading OCR, element OCR, element grounding, action prediction, and action grounding, as detailed in the figure. The benchmark comprises 1.5K instances, all uniformly formulated in the QA style, making it easy to evaluate and compare the performance of different MLLMs.
+![Alt text](https://raw.githubusercontent.com/VisualWebBench/VisualWebBench/main/assets/compare.png)
+The proposed VisualWebBench possesses the following features:
+- **Comprehensiveness**: VisualWebBench spans 139 websites with 1.5K samples, encompassing 12 different domains (e.g., travel, sports, hobby, lifestyle, animals, science, etc.) and 87 sub-domains.
+- **Multi-granularity**: VisualWebBench assesses MLLMs at three levels: website-level, element-level, and action-level.
+- **Multi-tasks**: WebBench encompasses seven tasks designed to evaluate the understanding, OCR, grounding, and reasoning capabilities of MLLMs.
+- **High quality**: Quality is ensured through careful human verification and curation efforts.
+![Alt text](https://raw.githubusercontent.com/VisualWebBench/VisualWebBench/main/assets/detail.png)
 
-# Load a specific subset
-dataset = load_dataset("{repo_name}", "action_ground")
+## Evaluation
 
-# Load all subsets
-dataset = load_dataset("{repo_name}")
+We provide [evaluation code](https://github.com/VisualWebBench/VisualWebBench) for GPT-4V, Claude, Gemini, and LLaVA 1.6 series.
+
+## Contact
+- Junpeng Liu: [jpliu@link.cuhk.edu.hk](jpliu@link.cuhk.edu.hk)
+- Yifan Song: [yfsong@pku.edu.cn](yfsong@pku.edu.cn)
+- Xiang Yue: [xyue2@andrew.cmu.edu](xyue2@andrew.cmu.edu)
+
+## Citation
+If you find this work helpful, please cite out paper:
 ```
-
-## Original Dataset
-
-This is based on the original VisualWebBench dataset. Please cite the original work:
-
-```bibtex
-@misc{{visualwebbench,
-  title={{VisualWebBench: A Comprehensive Benchmark for Evaluating Multimodal Large Language Models on Web-based Tasks}},
-  author={{Original Authors}},
-  year={{2024}},
-  url={{https://huggingface.co/datasets/visualwebbench/VisualWebBench}}
-}}
+@misc{liu2024visualwebbench,
+      title={VisualWebBench: How Far Have Multimodal LLMs Evolved in Web Page Understanding and Grounding?}, 
+      author={Junpeng Liu and Yifan Song and Bill Yuchen Lin and Wai Lam and Graham Neubig and Yuanzhi Li and Xiang Yue},
+      year={2024},
+      eprint={2404.05955},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
 ```
-
-## Replication Details
-
-- Original dataset size: ~1x
-- Replicated dataset size: 5x
-- Replication method: Simple concatenation of the original data
-"""
-    
-    readme_path = os.path.join(dataset_path, "README.md")
-    with open(readme_path, "w") as f:
-        f.write(readme_content)
-    
-    print(f"Dataset card generated: {readme_path}")
-
-if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="Upload replicated dataset to Hugging Face Hub")
-    parser.add_argument("dataset_path", help="Path to the dataset directory")
-    parser.add_argument("repo_name", help="Repository name")
-    parser.add_argument("--organization", help="Organization name (optional)")
-    parser.add_argument("--private", action="store_true", help="Make repository private")
-    parser.add_argument("--generate-card", action="store_true", help="Generate dataset card")
-    
-    args = parser.parse_args()
-    
-    if args.generate_card:
-        generate_dataset_card(args.dataset_path, args.repo_name)
-    
-    success = upload_dataset(
-        args.dataset_path,
-        args.repo_name,
-        args.organization,
-        args.private
-    )
-    
-    if success:
-        print(f"\nDataset uploaded successfully!")
-        print(f"View at: https://huggingface.co/datasets/{args.organization + '/' if args.organization else ''}{args.repo_name}")
-    else:
-        print("Upload failed!")
-        sys.exit(1)
 EOF
     
     print_success "Python upload script created."
