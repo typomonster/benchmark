@@ -180,19 +180,41 @@ def generate_dataset_metadata(
             if is_local_path:
                 # Handle local dataset directory structure
                 config_path = os.path.join(dataset_name_or_path, config_name)
+                print(f"Looking for config at: {config_path}")
+
                 if os.path.exists(config_path):
+                    # List contents of the config directory
+                    contents = os.listdir(config_path)
+                    print(f"Contents of {config_path}: {contents}")
+
                     # Try to load from subdirectory
                     try:
+                        print(f"Attempting to load dataset from disk: {config_path}")
                         dataset = datasets.load_from_disk(config_path)
+                        print(
+                            f"Successfully loaded dataset from disk, type: {type(dataset)}"
+                        )
+
                         if isinstance(dataset, dict):
+                            print(
+                                f"Dataset is a DatasetDict with keys: {list(dataset.keys())}"
+                            )
                             # If it's a DatasetDict, get the test split
                             test_split = dataset.get(
                                 "test", dataset.get("train", list(dataset.values())[0])
                             )
+                            if test_split is not None:
+                                print(f"Using split with {len(test_split)} examples")
                         else:
                             # If it's a single dataset, use it directly
                             test_split = dataset
-                    except Exception:
+                            print(
+                                f"Using single dataset with {len(test_split)} examples"
+                            )
+                    except Exception as e:
+                        print(
+                            f"Warning: Could not load dataset from disk for {config_name}: {e}"
+                        )
                         # Fallback: try to load parquet files directly
                         parquet_files = []
                         for file in os.listdir(config_path):
@@ -200,9 +222,34 @@ def generate_dataset_metadata(
                                 parquet_files.append(os.path.join(config_path, file))
 
                         if parquet_files:
-                            test_split = datasets.load_dataset(
-                                "parquet", data_files=parquet_files
-                            )["train"]
+                            print(
+                                f"Found {len(parquet_files)} parquet files in {config_path}"
+                            )
+                            print(
+                                f"Parquet files: {[os.path.basename(f) for f in parquet_files]}"
+                            )
+                            try:
+                                # Check if parquet files are readable
+                                for pf in parquet_files:
+                                    if not os.path.exists(pf):
+                                        print(
+                                            f"Warning: Parquet file does not exist: {pf}"
+                                        )
+                                    elif os.path.getsize(pf) == 0:
+                                        print(f"Warning: Parquet file is empty: {pf}")
+
+                                dataset_dict = datasets.load_dataset(
+                                    "parquet", data_files=parquet_files
+                                )
+                                test_split = dataset_dict["train"]
+                                print(
+                                    f"Successfully loaded {len(test_split)} examples from parquet files"
+                                )
+                            except Exception as parquet_error:
+                                print(
+                                    f"Error loading parquet files for {config_name}: {parquet_error}"
+                                )
+                                continue
                         else:
                             print(f"Warning: No parquet files found in {config_path}")
                             continue
@@ -211,7 +258,15 @@ def generate_dataset_metadata(
                     continue
             else:
                 # Handle HuggingFace dataset
-                dataset = datasets.load_dataset(dataset_name_or_path, config_name)
+                try:
+                    dataset = datasets.load_dataset(dataset_name_or_path, config_name)
+                    print(f"Successfully loaded HuggingFace dataset for {config_name}")
+                    print(f"Available splits: {list(dataset.keys())}")
+                except Exception as hf_error:
+                    print(
+                        f"Error loading HuggingFace dataset for {config_name}: {hf_error}"
+                    )
+                    continue
 
                 # Process test split (assuming that's what we have)
                 test_split = dataset.get("test")
@@ -220,6 +275,7 @@ def generate_dataset_metadata(
                     for split_name in ["train", "validation", "dev"]:
                         if split_name in dataset:
                             test_split = dataset[split_name]
+                            print(f"Using '{split_name}' split for {config_name}")
                             break
 
             if test_split is None:
@@ -227,10 +283,18 @@ def generate_dataset_metadata(
                 continue
 
             # Get features
+            print(f"Processing features for {config_name}...")
             features = get_feature_info(test_split)
+            print(f"Found {len(features)} features: {[f['name'] for f in features]}")
 
             # Calculate sizes
             num_examples = len(test_split)
+            print(f"Dataset {config_name} has {num_examples} examples")
+
+            if num_examples == 0:
+                print(f"Warning: Dataset {config_name} is empty, skipping...")
+                continue
+
             dataset_size = calculate_dataset_size(test_split)
             download_size = int(dataset_size * 0.98)  # Approximate download size
 
