@@ -93,6 +93,7 @@ def evaluate(
     max_examples: int = 0,
     batch_size: int = 1,
     repeat: int = 1,
+    sample_percent: float = 100.0,
     **kwargs,
 ):
     """
@@ -131,6 +132,9 @@ def evaluate(
         repeat (int, optional): Number of times to repeat the dataset for evaluation.
                                This augments the dataset size by cycling through the
                                original samples. Defaults to 1 (no repetition).
+        sample_percent (float, optional): Percentage of dataset to sample for evaluation.
+                                        Must be between 0.0 and 100.0. Defaults to 100.0
+                                        (use entire dataset).
         **kwargs: Additional arguments passed to task-specific evaluation functions.
 
     Returns:
@@ -150,6 +154,28 @@ def evaluate(
     preds, golds = [], []
     print("=" * 80)
     print("Prompt: ", prompt)
+
+    # Apply sampling if specified
+    if sample_percent < 100.0:
+        if sample_percent <= 0.0:
+            raise ValueError("sample_percent must be greater than 0.0")
+
+        original_dataset_size = len(dataset)
+        sample_size = int(original_dataset_size * sample_percent / 100.0)
+
+        # Ensure we sample at least 1 example
+        sample_size = max(1, sample_size)
+
+        # Generate random indices for sampling
+        random_indices = random.sample(range(original_dataset_size), sample_size)
+        random_indices.sort()  # Sort to maintain some ordering
+
+        # Sample the dataset
+        dataset = dataset.select(random_indices)
+
+        print(
+            f"Sampling {sample_percent}% of dataset: {sample_size} examples from {original_dataset_size} total"
+        )
 
     # Calculate effective dataset size with repetition
     original_size = len(dataset)
@@ -322,6 +348,7 @@ def main(args):
             - engine (str): Inference engine choice ("pytorch" or "vllm")
             - batch_size (int): Number of samples to process in each batch
             - repeat (int): Number of times to repeat the dataset for evaluation
+            - sample_percent (float): Percentage of dataset to sample (0.0-100.0)
 
     Side Effects:
         - Creates output directories if they don't exist
@@ -472,6 +499,7 @@ def main(args):
             max_examples=args.max_examples,
             batch_size=args.batch_size,
             repeat=args.repeat,
+            sample_percent=args.sample_percent,
         )
         task_end_time = time.time()
         task_duration = task_end_time - task_start_time
@@ -639,7 +667,19 @@ if __name__ == "__main__":
         type=int,
         help="Number of times to repeat the dataset for evaluation (augments dataset size).",
     )
+    parser.add_argument(
+        "--sample_percent",
+        default=100.0,
+        type=float,
+        help="Percentage of dataset to sample for evaluation (0.0-100.0). Default is 100.0 (use entire dataset).",
+    )
     args = parser.parse_args()
+
+    # Validate sample_percent
+    if args.sample_percent <= 0.0 or args.sample_percent > 100.0:
+        raise ValueError(
+            f"sample_percent must be between 0.0 and 100.0, got {args.sample_percent}"
+        )
 
     # Create output directories if they don't exist
     if not os.path.exists(args.output_path):

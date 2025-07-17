@@ -16,6 +16,7 @@ MAX_EXAMPLES=""
 ENGINE="pytorch"
 BATCH_SIZE="1"
 REPEAT="1"
+SAMPLE_PERCENT=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -52,9 +53,13 @@ while [[ $# -gt 0 ]]; do
             REPEAT="$2"
             shift 2
             ;;
+        --sample-percent)
+            SAMPLE_PERCENT="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--dataset <dataset_path>] [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm] [--batch-size <batch_size>] [--repeat <repeat_count>]"
+            echo "Usage: $0 [--dataset <dataset_path>] [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm] [--batch-size <batch_size>] [--repeat <repeat_count>] [--sample-percent <percentage>]"
             exit 1
             ;;
     esac
@@ -88,6 +93,11 @@ fi
 # Add repeat if different from default
 if [[ "$REPEAT" != "1" ]]; then
     PYTHON_CMD="$PYTHON_CMD --repeat $REPEAT"
+fi
+
+# Add sample_percent if provided
+if [[ -n "$SAMPLE_PERCENT" ]]; then
+    PYTHON_CMD="$PYTHON_CMD --sample_percent $SAMPLE_PERCENT"
 fi
 
 # Execute the command
