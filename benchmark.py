@@ -427,14 +427,7 @@ def main(args):
             dataset = datasets.load_dataset("parquet", data_files=parquet_files)[
                 "train"
             ]
-            # Convert image bytes to PIL Image objects if needed
-            if "image" in dataset.column_names:
 
-                def process_image(example):
-                    example["image"] = Image.open(io.BytesIO(example["image"]["bytes"]))
-                    return example
-
-                dataset = dataset.map(process_image, num_proc=16)
         else:
             # Fall back to arrow files
             arrow_files = glob.glob(
@@ -457,6 +450,17 @@ def main(args):
                     dataset = datasets.load_dataset(
                         args.dataset_name_or_path, task_type
                     )["test"]
+
+        # Convert image bytes to PIL Image objects if needed
+        print("columns", dataset.column_names)
+        if "image" in dataset.column_names:
+
+            def process_image(example):
+                if isinstance(example["image"], dict):
+                    example["image"] = Image.open(io.BytesIO(example["image"]["bytes"]))
+                return example
+
+            dataset = dataset.map(process_image, num_proc=16)
 
         # Run evaluation with timing
         task_start_time = time.time()

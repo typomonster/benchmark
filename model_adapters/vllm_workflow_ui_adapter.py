@@ -188,6 +188,8 @@ class VLLMWorkflowUIAdapter(BaseAdapter):
         # Prepare batch inputs
         llm_inputs = []
         for query, image, task_type in zip(queries, images, task_types):
+            if isinstance(image, dict):
+                image = Image.open(io.BytesIO(image["bytes"]))
             # Convert image to RGB format
             image = image.convert("RGB")
 
