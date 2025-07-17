@@ -431,8 +431,7 @@ def main(args):
             if "image" in dataset.column_names:
 
                 def process_image(example):
-                    if isinstance(example["image"], bytes):
-                        example["image"] = Image.open(io.BytesIO(example["image"]))
+                    example["image"] = Image.open(io.BytesIO(example["image"]["bytes"]))
                     return example
 
                 dataset = dataset.map(process_image)
