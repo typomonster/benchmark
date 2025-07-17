@@ -25,7 +25,7 @@ print(f'Model downloaded to: {model_path}')
 "
 
 # Download VisualWebBench dataset
-echo "Downloading visualwebbench/VisualWebBench dataset..."
+echo "Downloading VisualWebBench dataset..."
 python -c "
 import os
 from datasets import load_dataset
@@ -38,7 +38,7 @@ configs = ['action_ground', 'action_prediction', 'element_ground', 'element_ocr'
 
 for config in configs:
     print(f'Downloading config: {config}')
-    dataset = load_dataset('visualwebbench/VisualWebBench', config)
+    dataset = load_dataset('leo5072/VisualWebBench', config)
     config_path = os.path.join(dataset_path, config)
     dataset.save_to_disk(config_path)
     print(f'Config {config} downloaded to: {config_path}')

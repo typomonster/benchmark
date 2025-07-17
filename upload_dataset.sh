@@ -150,52 +150,55 @@ def upload_dataset(dataset_path, repo_name, organization=None, private=False):
 
 def generate_dataset_card(dataset_path, repo_name):
     """
-    Generate a README.md file for the dataset.
+    Use existing README.md from the source directory if available, otherwise skip.
     """
-    readme_content = f"""# Augmented {repo_name}
+    # First, check the current directory (project root) for README.md
+    current_dir_readme = "README.md"
+    dataset_readme = os.path.join(dataset_path, "README.md")
+    
+    if os.path.exists(current_dir_readme):
+        print(f"Using existing README.md from project root: {current_dir_readme}")
+        # Copy the README.md to the dataset directory so it gets uploaded
+        import shutil
+        shutil.copy2(current_dir_readme, dataset_readme)
+        return True
+    elif os.path.exists(dataset_readme):
+        print(f"Using existing README.md from dataset directory: {dataset_readme}")
+        return True
+    else:
+        print(f"No README.md found in project root or {dataset_path}, skipping dataset card generation")
+        return False
 
-Dataset for the paper: [VisualWebBench: How Far Have Multimodal LLMs Evolved in Web Page Understanding and Grounding?](https://arxiv.org/abs/2404.05955)
-
-[**🌐 Homepage**](https://visualwebbench.github.io/) | [**🐍 GitHub**](https://github.com/VisualWebBench/VisualWebBench) | [**📖 arXiv**](https://arxiv.org/abs/2404.05955)
-
-
-## Introduction
-
-We introduce **VisualWebBench**, a multimodal benchmark designed to assess the **understanding and grounding capabilities of MLLMs in web scenarios**. VisualWebBench consists of **seven tasks**, and comprises **1.5K** human-curated instances from **139** real websites, covering 87 sub-domains. We evaluate 14 open-source MLLMs, Gemini Pro, Claude 3, and GPT-4V(ision) on WebBench, revealing significant challenges and performance gaps. Further analysis highlights the limitations of current MLLMs, including inadequate grounding in text-rich environments and subpar performance with low-resolution image inputs. We believe VisualWebBench will serve as a valuable resource for the research community and contribute to the creation of more powerful and versatile MLLMs for web-related applications.
-
-![Alt text](https://raw.githubusercontent.com/VisualWebBench/VisualWebBench/main/assets/main.png)
-
-## Benchmark Construction
-We introduce VisualWebBench, a comprehensive multimodal benchmark designed to assess the capabilities of MLLMs in the web domain. Inspired by the human interaction process with web browsers, VisualWebBench consists of seven tasks that map to core abilities required for web tasks: captioning, webpage QA, heading OCR, element OCR, element grounding, action prediction, and action grounding, as detailed in the figure. The benchmark comprises 1.5K instances, all uniformly formulated in the QA style, making it easy to evaluate and compare the performance of different MLLMs.
-![Alt text](https://raw.githubusercontent.com/VisualWebBench/VisualWebBench/main/assets/compare.png)
-The proposed VisualWebBench possesses the following features:
-- **Comprehensiveness**: VisualWebBench spans 139 websites with 1.5K samples, encompassing 12 different domains (e.g., travel, sports, hobby, lifestyle, animals, science, etc.) and 87 sub-domains.
-- **Multi-granularity**: VisualWebBench assesses MLLMs at three levels: website-level, element-level, and action-level.
-- **Multi-tasks**: WebBench encompasses seven tasks designed to evaluate the understanding, OCR, grounding, and reasoning capabilities of MLLMs.
-- **High quality**: Quality is ensured through careful human verification and curation efforts.
-![Alt text](https://raw.githubusercontent.com/VisualWebBench/VisualWebBench/main/assets/detail.png)
-
-## Evaluation
-
-We provide [evaluation code](https://github.com/VisualWebBench/VisualWebBench) for GPT-4V, Claude, Gemini, and LLaVA 1.6 series.
-
-## Contact
-- Junpeng Liu: [jpliu@link.cuhk.edu.hk](jpliu@link.cuhk.edu.hk)
-- Yifan Song: [yfsong@pku.edu.cn](yfsong@pku.edu.cn)
-- Xiang Yue: [xyue2@andrew.cmu.edu](xyue2@andrew.cmu.edu)
-
-## Citation
-If you find this work helpful, please cite out paper:
-```
-@misc{liu2024visualwebbench,
-      title={VisualWebBench: How Far Have Multimodal LLMs Evolved in Web Page Understanding and Grounding?}, 
-      author={Junpeng Liu and Yifan Song and Bill Yuchen Lin and Wai Lam and Graham Neubig and Yuanzhi Li and Xiang Yue},
-      year={2024},
-      eprint={2404.05955},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
-}
-```
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Upload dataset to Hugging Face Hub")
+    parser.add_argument("dataset_path", help="Path to the dataset directory")
+    parser.add_argument("repo_name", help="Repository name")
+    parser.add_argument("--organization", help="Organization name")
+    parser.add_argument("--private", action="store_true", help="Make repository private")
+    parser.add_argument("--generate-card", action="store_true", help="Generate dataset card")
+    
+    args = parser.parse_args()
+    
+    # Generate dataset card if requested
+    if args.generate_card:
+        generate_dataset_card(args.dataset_path, args.repo_name)
+    
+    # Upload the dataset
+    success = upload_dataset(
+        dataset_path=args.dataset_path,
+        repo_name=args.repo_name,
+        organization=args.organization,
+        private=args.private
+    )
+    
+    if success:
+        print("Dataset upload completed successfully!")
+        sys.exit(0)
+    else:
+        print("Dataset upload failed!")
+        sys.exit(1)
 EOF
     
     print_success "Python upload script created."
@@ -268,6 +271,7 @@ cleanup() {
 main() {
     echo "=== VisualWebBench Dataset Upload Script ==="
     echo "This script uploads the replicated dataset to Hugging Face Hub"
+    echo "It will use existing README.md from the project root if available"
     echo
     
     case "${1:-info}" in
