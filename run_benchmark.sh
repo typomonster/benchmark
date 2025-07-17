@@ -20,6 +20,10 @@ REPEAT="1"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --dataset)
+            DATASET="$2"
+            shift 2
+            ;;
         --task)
             if [[ "$2" == "all" ]]; then
                 TASK_TYPE=element_ocr,heading_ocr,webqa,action_ground,action_prediction,element_ground
@@ -50,7 +54,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm] [--batch-size <batch_size>] [--repeat <repeat_count>]"
+            echo "Usage: $0 [--dataset <dataset_path>] [--task all|<task_list>] [--seed <seed_value>] [--max-examples <max_examples>] [--engine pytorch|vllm] [--batch-size <batch_size>] [--repeat <repeat_count>]"
             exit 1
             ;;
     esac

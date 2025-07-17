@@ -13,9 +13,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPLICATED_DIR="./replicated_dataset_5x"
+REPLICATED_DIR="./replicated_dataset_10x"
 PYTHON_UPLOAD_SCRIPT="upload_dataset.py"
-DEFAULT_REPO_NAME="visualwebbench-replicated-5x"
+DEFAULT_REPO_NAME="visualwebbench-replicated-10x"
 DEFAULT_ORGANIZATION=""
 
 # Function to print colored output
