@@ -47,7 +47,7 @@ for config in configs:
     # Save test split as parquet file
     if 'test' in dataset:
         parquet_file = os.path.join(config_path, 'test-00000-of-00001.parquet')
-        dataset['test'].to_parquet(parquet_file)
+        dataset.to_parquet(parquet_file)
         print(f'Config {config} test split saved to: {parquet_file}')
     else:
         print(f'Warning: No test split found for config {config}')
