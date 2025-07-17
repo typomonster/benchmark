@@ -423,9 +423,12 @@ def main(args):
         if arrow_files:
             dataset = datasets.load_dataset("arrow", data_files=arrow_files)["train"]
         else:
-            dataset = datasets.load_from_disk(
-                os.path.join(args.dataset_name_or_path, task_type)
-            )["test"]
+            # dataset = datasets.load_from_disk(
+            #     os.path.join(args.dataset_name_or_path, task_type)
+            # )["test"]
+            dataset = datasets.load_dataset(args.dataset_name_or_path, task_type)[
+                "test"
+            ]
 
         # Run evaluation with timing
         task_start_time = time.time()
