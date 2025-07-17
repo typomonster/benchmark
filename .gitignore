@@ -181,3 +181,6 @@ test.py
 
 dataset
 run.sh
+original_dataset
+replicated_dataset_*
+test_
