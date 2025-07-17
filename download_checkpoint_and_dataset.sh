@@ -55,7 +55,8 @@ echo "Downloading VisualWebBench dataset..."
 # print(f'All dataset configs downloaded to: {dataset_path}')
 # "
 
-huggingface-cli download leo5072/VisualWebBench --repo-type dataset --local-dir $ROOT_DIR/datasets/VisualWebBench --local-dir-use-symlinks=False
+# huggingface-cli download leo5072/VisualWebBench --repo-type dataset --local-dir $ROOT_DIR/datasets/VisualWebBench --local-dir-use-symlinks=False
+huggingface-cli download visualwebbench/VisualWebBench --repo-type dataset --local-dir $ROOT_DIR/datasets/VisualWebBench --local-dir-use-symlinks=False
 
 echo "Download completed!"
 echo "Model location: $ROOT_DIR/models/Workflow-UI-7B-Instruct"
